@@ -58,6 +58,5 @@ wl0.3_hwaddr
 wl0_hwaddr
 wl0_ifname
 wl0_radioids
-wl_hwaddr
-wl_ifname
+^wl_
 ^wlan_

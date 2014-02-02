@@ -1,14 +1,70 @@
 #!/bin/sh
 #########################################################
-# setup variables
+#	Script Requirements
+#
+#	Files:
+#		vars_to_skip
+#		vars_preferred
+#
+#	Programs:
+#		curl
 #########################################################
+
+#########################################################
+# setup variables
+#
+# DATE			- Date
+# MAC			- Mac address
+# FILE			- File Name Prefix
+# CUR_DIR		- Current Directory
+# transfer		- FTP Transfer ON/OFF (Default is OFF)
+# FOLDER		- Location where backup scripts are stored
+# VARFILE		- Location & Name of Temp File
+# TO_ALL		- Location & Name of script File with all nvram variables
+# TO_INCLUDE	- Location & Name of script File with essential nvram variables
+# TO_EXCLUDE	- Location & Name of script File with dangerous nvram variables
+# TO_PREFERRED	- Location & Name of script File with preferred nvram variables
+#
+#########################################################
+
+DATE=`date +%m%d%Y`
+MAC=`nvram get lan_hwaddr | tr -d ":"`
+FILE=${MAC}.${DATE}
+CUR_DIR=`dirname $0`
+transfer=0
+FOLDER=/opt/var/backups
+VARFILE=/opt/tmp/all_vars
+TO_ALL=${FOLDER}/${MAC}.${DATE}.all.sh
+TO_INCLUDE=${FOLDER}/${MAC}.${DATE}.essential.sh
+TO_EXCLUDE=${FOLDER}/${MAC}.${DATE}.dangerous.sh
+TO_PREFERRED=${FOLDER}/${MAC}.${DATE}.preferred.sh
 
 #########################################################
 #FTP Login information change to your info
 #########################################################
-FTPS=ftp://192.168.10.210/backups
+
+FTPS=ftp://192.168.1.100/backups
 USERPASS=user:pass
-transfer=0
+
+#########################################################
+# read command line switches
+#
+#	example command lines
+#
+#	./backupvars.sh -t
+#
+#	The above command with use the user and password and
+#	server information embedded in this script.
+#	(See FTP Login information above)
+#
+#
+#	./backupvars.sh -t -u user:pass -f ftp://192.168.1.100/backups
+#
+#	The above command with use the user and password and
+#	server information from the command line
+#
+#########################################################
+
 while getopts tu:f: name
 do
   case $name in
@@ -20,19 +76,6 @@ do
   esac
 done
 shift $(($OPTIND - 1))
-
-DATE=`date +%m%d%Y`
-MAC=`nvram get lan_hwaddr | tr -d ":"`
-FILE=${MAC}.${DATE}
-CUR_DIR=`dirname $0`
-
-FOLDER=/opt/var/backups
-VARFILE=/opt/tmp/all_vars
-TO_ALL=${FOLDER}/${MAC}.${DATE}.all.sh
-TO_INCLUDE=${FOLDER}/${MAC}.${DATE}.essential.sh
-TO_EXCLUDE=${FOLDER}/${MAC}.${DATE}.dangerous.sh
-TO_PREFERRED=${FOLDER}/${MAC}.${DATE}.preferred.sh
-
 
 #########################################################
 #create NVRAM variale list and write to /opt/tmp/all_vars
@@ -76,6 +119,7 @@ done
 
 #########################################################
 # cleanup remove /opt/tmp/all_vars
+# uncomment to remove file
 #########################################################
 
 # rm ${VARFILE}
