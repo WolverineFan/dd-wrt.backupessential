@@ -26,7 +26,7 @@ USERPASS=user:pass
 #create NVRAM variale list and write to /opt/tmp/all_vars
 #########################################################
 
-nvram show 2>/dev/null | egrep '^[A-Za-z][A-Za-z0-9_\.\-]*=' | awk -F = '{print $1}' | sort -u >${VARFILE}
+nvram show 2>/dev/null | egrep '^[A-Za-z][A-Za-z0-9_\.\-]*=' | awk -F = '{print $1}' | sort -r -u >${VARFILE}
 
 #########################################################
 # Write header to restore scripts
