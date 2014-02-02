@@ -32,7 +32,7 @@ MAC=`nvram get lan_hwaddr | tr -d ":"`
 FILE=${MAC}.${DATE}
 CUR_DIR=`dirname $0`
 transfer=0
-FOLDER=/opt/var/backups
+FOLDER=/opt/vars/backups
 VARFILE=/opt/tmp/all_vars
 TO_ALL=${FOLDER}/${MAC}.${DATE}.all.sh
 TO_INCLUDE=${FOLDER}/${MAC}.${DATE}.essential.sh
@@ -49,9 +49,13 @@ USERPASS=user:pass
 #########################################################
 # read command line switches
 #
+#       To make executible
+#
+#       chmod +x /mmc/jffs/backupvars.sh
+#
 #	example command lines
 #
-#	./backupvars.sh -t
+#       ./backupvars.sh -t
 #
 #	The above command with use the user and password and
 #	server information embedded in this script.
