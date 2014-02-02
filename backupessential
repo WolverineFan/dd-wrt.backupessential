@@ -14,22 +14,22 @@
 #########################################################
 # setup variables
 #
-# DATE                  - Date
-# MAC                   - Mac address
-# FILE                  - File Name Prefix
-# CUR_DIR               - Current Directory
-# TRANSFER              - FTP Transfer ON/OFF (Default is OFF)
-# FOLDER                - Location where backup scripts are stored
-# VARFILE               - Location & Name of Temp File
-# TO_ALL                - Location & Name of script File with all nvram variables
+# DATE          - Date
+# MAC           - Mac address
+# FILE          - File Name Prefix
+# CUR_DIR       - Current Directory
+# TRANSFER      - FTP Transfer ON/OFF (Default is OFF)
+# FOLDER        - Location where backup scripts are stored
+# VARFILE       - Location & Name of Temp File
+# TO_ALL        - Location & Name of script File with all nvram variables
 # TO_INCLUDE    - Location & Name of script File with essential nvram variables
 # TO_EXCLUDE    - Location & Name of script File with dangerous nvram variables
 # TO_PREFERRED  - Location & Name of script File with preferred nvram variables
 #
-# wget -O /opt/usr/sbin/backupessential http://wd.mirmana.com/backupessential
-# wget -O /opt/usr/sbin/vars_to_skip http://wd.mirmana.com/vars_to_skip
-# wget -O /opt/usr/sbin/vars_to_include http://wd.mirmana.com/vars_to_include
-# wget -O /opt/usr/sbin/vars_preferred http://wd.mirmana.com/vars_preferred
+# wget -O backupessential https://raw2.github.com/WolverineFan/dd-wrt.backupessential/master/vars_preferred
+# wget -O vars_to_skip https://raw2.github.com/WolverineFan/dd-wrt.backupessential/master/vars_to_skip
+# wget -O vars_to_include https://raw2.github.com/WolverineFan/dd-wrt.backupessential/master/vars_to_include
+# wget -O vars_preferred https://raw2.github.com/WolverineFan/dd-wrt.backupessential/master/vars_preferred
 #
 #########################################################
 export PATH=/opt/bin:/opt/sbin:/opt/usr/sbin:/bin:/usr/bin:/sbin:/usr/sbin:/jffs/sbin:/jffs/bin:/jffs/usr/sbin:/jffs/usr/bin:/mmc/sbin:/mmc/bin:/mmc/usr/sbin:/mmc/usr/bin
@@ -41,13 +41,16 @@ NAME="$0"
 [ -z "`which readlink`" ] || NAME="`readlink -f "${NAME}"`"
 CUR_DIR=`dirname ${NAME}`
 TRANSFER=0
-FOLDER=/opt/var/backups
-VARFILE=/opt/tmp/all_vars
-TO_ALL=${FOLDER}/${MAC}.${DATE}.all.sh
-TO_INCLUDE=${FOLDER}/${MAC}.${DATE}.essential.sh
-TO_EXCLUDE=${FOLDER}/${MAC}.${DATE}.dangerous.sh
-TO_PREFERRED=${FOLDER}/${MAC}.${DATE}.preferred.sh
-TO_MINIMAL=${FOLDER}/${MAC}.${DATE}.minimal.sh
+if [ -d /opt/tmp ]; then
+  FOLDER=/opt/var/backups
+  VARFILE=/opt/tmp/all_vars
+elif [ -d /mmc/jffs ]; then
+  FOLDER=/mmc/jffs
+  VARFILE=/mmc/jffs/all_vars
+else
+  FOLDER=/tmp/backups
+  VARFILE=/tmp/all_vars
+fi
 
 flavours='all
 essential
@@ -74,25 +77,45 @@ USERPASS=user:pass
 #   (See FTP Login information above)
 #
 #
-#   ./backupessential -t -u user:pass -f ftp://192.168.1.100/backups
+#   ./backupessential -d <backupdir> -t -u user:pass -f ftp://192.168.1.100/backups
 #
 #   The above command with use the user and password and
 #   server information from the command line
 #
 #########################################################
 
-while getopts tu:f: name
+while getopts tu:f:d: name
 do
   case $name in
   t)   TRANSFER=1;;
   u)   USERPASS="$OPTARG";;
   f)   FTPS="$OPTARG";;
+  d)   BACKUPDIR="$OPTARG";;
   ?)   printf "Usage: %s: [-t] [-u username:password] [-f ftpserver]\n" $0
        exit 2;;
   esac
 done
 shift $(($OPTIND - 1))
 
+if [ "${BACKUPDIR}" != "" ]; then
+  if [ ! -d "${BACKUPDIR}" ]; then
+    echo "ERROR: ${BACKUPDIR} does not exist"
+    exit 1
+  fi
+  FOLDER="${BACKUPDIR}"
+  VARFILE="${BACKUPDIR}"/all_vars
+else
+  mkdir -p $FOLDER
+  if [ ! -d $FOLDER ]; then
+    echo "ERROR: Unable to write to $FOLDER"
+    exit 1
+  fi
+fi
+TO_ALL="${FOLDER}/${MAC}.${DATE}.all.sh"
+TO_INCLUDE="${FOLDER}/${MAC}.${DATE}.essential.sh"
+TO_EXCLUDE="${FOLDER}/${MAC}.${DATE}.dangerous.sh"
+TO_PREFERRED="${FOLDER}/${MAC}.${DATE}.preferred.sh"
+TO_MINIMAL="${FOLDER}/${MAC}.${DATE}.minimal.sh"
 CR=`printf "\r"`
 
 if [ ! -f "${CUR_DIR}/vars_to_skip" ] ; then
@@ -193,19 +216,19 @@ grep -q "^ *$" "${CUR_DIR}/vars_to_include"  && sed -i -e '/^ *$/d' "${CUR_DIR}/
 grep -q "^ *$" "${CUR_DIR}/vars_to_skip"     && sed -i -e '/^ *$/d' "${CUR_DIR}/vars_to_skip"
 
 #########################################################
-#create NVRAM variale list and write to /opt/tmp/all_vars
+# Create NVRAM variale list and write to /opt/tmp/all_vars
 #########################################################
 
-nvram show 2>/dev/null | egrep '^[A-Za-z][A-Za-z0-9_\.\-]*=' | awk -F= '{print $1}' | sort -ruo ${VARFILE}
+nvram show 2>/dev/null | egrep '^[A-Za-z][A-Za-z0-9_\.\-]*=' | awk -F= '{print $1}' | sort -ruo "${VARFILE}"
 
 #########################################################
 # Write header to restore scripts
 #########################################################
 
-echo -e "#!/bin/sh\n#\necho \"Write variables\"\n" | tee -i ${TO_EXCLUDE} | tee -i ${TO_PREFERRED} | tee -i  ${TO_ALL} | tee -i ${TO_MINIMAL} > ${TO_INCLUDE}
+echo -e "#!/bin/sh\n#\necho \"Write variables\"\n" | tee -i "${TO_EXCLUDE}" | tee -i "${TO_PREFERRED}" | tee -i  "${TO_ALL}" | tee -i "${TO_MINIMAL}" > "${TO_INCLUDE}"
 
 #########################################################
-# scan NVRAM variable list and send variable to proper
+# Scan NVRAM variable list and send variable to proper
 # restore script
 #########################################################
 
@@ -213,9 +236,9 @@ while read var ; do
   pref=0
   minim=0
   if echo "${var}" | grep -q -f "${CUR_DIR}/vars_to_skip" ; then
-    bfile=$TO_EXCLUDE
+    bfile="$TO_EXCLUDE"
   else
-    bfile=$TO_INCLUDE
+    bfile="$TO_INCLUDE"
     pref=`echo "${var}"  | grep -cf "${CUR_DIR}/vars_preferred"`
     minim=`echo "${var}" | grep -cf "${CUR_DIR}/vars_minimal"`
   fi
@@ -236,10 +259,10 @@ while read var ; do
     echo -n "${data}" |  sed -e 's/[$`"\]/\\&/g' >> ${TO_MINIMAL}
     echo -e "\"" >> ${TO_MINIMAL}
   fi
-done <${VARFILE}
+done <"${VARFILE}"
 
 #########################################################
-# cleanup remove /opt/tmp/all_vars
+# Cleanup remove /opt/tmp/all_vars
 # uncomment to remove file
 #########################################################
 
@@ -249,21 +272,21 @@ done <${VARFILE}
 # Write footer to restore script
 #########################################################
 
-echo -e "\n# Commit variables\necho \"Save variables to nvram\"\nnvram commit"  | tee -ia  ${TO_ALL} | tee -ia  ${TO_PREFERRED} | tee -ia  ${TO_EXCLUDE} | tee -ia  ${TO_MINIMAL} >> ${TO_INCLUDE}
+echo -e "\n# Commit variables\necho \"Save variables to nvram\"\nnvram commit"  | tee -ia  "${TO_ALL}" | tee -ia  "${TO_PREFERRED}" | tee -ia  "${TO_EXCLUDE}" | tee -ia  "${TO_MINIMAL}" >> "${TO_INCLUDE}"
 
 #########################################################
 # Change permissions on restore scripts to make them
 # executable
 #########################################################
 
-chmod +x ${TO_INCLUDE}
-chmod +x ${TO_PREFERRED}
-chmod +x ${TO_EXCLUDE}
-chmod +x ${TO_ALL}
-chmod +x ${TO_MINIMAL}
+chmod +x "${TO_INCLUDE}"
+chmod +x "${TO_PREFERRED}"
+chmod +x "${TO_EXCLUDE}"
+chmod +x "${TO_ALL}"
+chmod +x "${TO_MINIMAL}"
 
-# renove the previous backup if it's (almost) the same
-if cd ${FOLDER} ; then
+# Remove the previous backup if it's (almost) the same
+if cd "${FOLDER}" ; then
   for flavour in ${flavours} ; do
 
     echo "Checking ${MAC}.*.${flavour}.sh"
@@ -296,7 +319,7 @@ ln -s ${TO_MINIMAL} /opt/restore
 # Compress restore scripts and send them to ftp server
 #########################################################
 
-if [ ${TRANSFER} -ne 0 ] ; then
+if [ "${TRANSFER}" -ne 0 ] ; then
   tar cpf - -C / "${TO_INCLUDE}" 2>/dev/null | gzip -c |  /opt/bin/curl -s -u ${USERPASS} "${FTPS}/${FILE}.essential.sh.tgz" -T -
   tar cpf - -C / "${TO_MINIMAL}" 2>/dev/null | gzip -c |  /opt/bin/curl -s -u ${USERPASS} "${FTPS}/${FILE}.minimal.sh.tgz" -T -
   tar cpf - -C / "${TO_PREFERRED}" 2>/dev/null | gzip -c |  /opt/bin/curl -s -u ${USERPASS} "${FTPS}/${FILE}.preferred.sh.tgz" -T -
