@@ -13,7 +13,8 @@ TO_EXCLUDE=${FOLDER}/${MAC}.${DATE}.dangerous.sh
 TO_PREFERRED=${FOLDER}/${MAC}.${DATE}.preferred.sh
 FTPS=ftp://192.168.10.210/backups
 USERPASS=user:pass
-nvram show 2>/dev/null | egrep '^[a-zA-Z].*=' | awk -F= '{print $1}' | grep -v "[ /+<>,:;]" | sort -u >${VARFILE}
+
+nvram show 2>/dev/null | egrep '^[A-Za-z][A-Za-z0-9_\.\-]*=' | awk -F = '{print $1}' | sort -u >${VARFILE}
 #
 echo -e "#!/bin/sh\n#\necho \"Write variables\"\n" | tee -i ${TO_EXCLUDE} | tee -i ${TO_PREFERRED} | tee -i  ${TO_ALL} > ${TO_INCLUDE}
 
@@ -29,18 +30,14 @@ do
 
   # get the data out of the variable
   data=`nvram get ${var}`
-  if [ "${data}" == "" ] ; then
-    echo -e "nvram set ${var}="  | tee -ia  ${TO_ALL} >> ${bfile}
-  else
-    # write the var to the file and use \ for special chars: (\$`")
-    echo -en "nvram set ${var}=\"" | tee -ia ${TO_ALL} >> ${bfile}
-    echo -n "${data}" |  sed -e 's/[$`"\]/\\&/g' | tee -ia  ${TO_ALL} >> ${bfile}
-    echo -e "\"" | tee -ia  ${TO_ALL} >> ${bfile}
-    if [ ! ${pref} == 0 ]; then
-      echo -en "nvram set ${var}=\"" >> ${TO_PREFERRED}
-      echo -n "${data}" |  sed -e 's/[$`"\]/\\&/g' >> ${TO_PREFERRED}
-      echo -e "\"" >> ${TO_PREFERRED}
-    fi
+  # write the var to the file and use \ for special chars: (\$`")
+  echo -en "nvram set ${var}=\"" | tee -ia ${TO_ALL} >> ${bfile}
+  echo -n "${data}" |  sed -e 's/[$`"\]/\\&/g' | tee -ia  ${TO_ALL} >> ${bfile}
+  echo -e "\"" | tee -ia  ${TO_ALL} >> ${bfile}
+  if [ ! ${pref} == 0 ]; then
+    echo -en "nvram set ${var}=\"" >> ${TO_PREFERRED}
+    echo -n "${data}" |  sed -e 's/[$`"\]/\\&/g' >> ${TO_PREFERRED}
+    echo -e "\"" >> ${TO_PREFERRED}
   fi
 done
 
