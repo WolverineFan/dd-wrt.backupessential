@@ -2,6 +2,9 @@ DD_BOARD
 ^board
 browser_method
 ^cfe
+clkfreq
+il0macaddr
+^pa0
 ct_modules
 custom_shutdown_command
 ^def_
@@ -18,9 +21,9 @@ gpio
 ^hardware
 ^is_
 ^kernel_
-lan_default
 ^lan_hw
 ^lan_ifname
+lan_default
 landevs
 manual_boot_nv
 misc_io_mode
@@ -42,6 +45,7 @@ scratch
 sdram
 ^sh_
 ^skip
+sromrev
 sshd_dss_host_key
 sshd_rsa_host_key
 startup_command
@@ -58,5 +62,6 @@ wl0.3_hwaddr
 wl0_hwaddr
 wl0_ifname
 wl0_radioids
-^wl_
+wl_hwaddr
+wl_ifname
 ^wlan_
