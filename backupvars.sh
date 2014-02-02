@@ -49,13 +49,9 @@ USERPASS=user:pass
 #########################################################
 # read command line switches
 #
-#       To make executible
-#
-#       chmod +x /mmc/jffs/backupvars.sh
-#
 #	example command lines
 #
-#       ./backupvars.sh -t
+#	./backupvars.sh -t
 #
 #	The above command with use the user and password and
 #	server information embedded in this script.
@@ -75,7 +71,7 @@ do
   t)   transfer=1;;
   u)   USERPASS="$OPTARG";;
   f)   FTPS="$OPTARG";;
-  ?)   printf "Usage: %s: [-t] [-u username:password] [-f ftpserver]\n" $0
+  ?)   printf "Usage: %s: [-t] [-u username:password] [-f ftpserver]\n"
        exit 2;;
   esac
 done
@@ -101,7 +97,8 @@ echo -e "#!/bin/sh\n#\necho \"Write variables\"\n" | tee -i ${TO_EXCLUDE} | tee 
 cat ${VARFILE} | while read var
 do
   pref=0
-  if echo "${var}" | grep -q -f "${CUR_DIR}/vars_to_skip" ; then
+ ### replaced with next line by Andon Mančev :  if echo "${var}" | grep -q -f "${CUR_DIR}/vars_to_skip" ; then
+if cat "${CUR_DIR}/vars_to_skip" | grep -q "${var}"  ; then
     bfile=$TO_EXCLUDE
   else
     bfile=$TO_INCLUDE
