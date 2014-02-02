@@ -3,6 +3,24 @@
 # setup variables
 #########################################################
 
+#########################################################
+#FTP Login information change to your info
+#########################################################
+FTPS=ftp://192.168.10.210/backups
+USERPASS=user:pass
+transfer=0
+while getopts tu:f: name
+do
+  case $name in
+  t)   transfer=1;;
+  u)   USERPASS="$OPTARG";;
+  f)   FTPS="$OPTARG";;
+  ?)   printf "Usage: %s: [-t] [-u username:password] [-f ftpserver]\n" $0
+       exit 2;;
+  esac
+done
+shift $(($OPTIND - 1))
+
 DATE=`date +%m%d%Y`
 MAC=`nvram get lan_hwaddr | tr -d ":"`
 FILE=${MAC}.${DATE}
@@ -15,12 +33,6 @@ TO_INCLUDE=${FOLDER}/${MAC}.${DATE}.essential.sh
 TO_EXCLUDE=${FOLDER}/${MAC}.${DATE}.dangerous.sh
 TO_PREFERRED=${FOLDER}/${MAC}.${DATE}.preferred.sh
 
-#########################################################
-#FTP Login information change to your info
-#########################################################
-
-FTPS=ftp://192.168.1.100/backups
-USERPASS=user:pass
 
 #########################################################
 #create NVRAM variale list and write to /opt/tmp/all_vars
@@ -88,7 +100,9 @@ chmod +x ${TO_ALL}
 # Compress restore scripts and send them to ftp server
 #########################################################
 
-tar cpf - -C / "${TO_INCLUDE}" 2>/dev/null | gzip -c |  /opt/bin/curl -s -u ${USERPASS} "${FTPS}/${FILE}.essential.sh.tgz" -T -
-tar cpf - -C / "${TO_PREFERRED}" 2>/dev/null | gzip -c |  /opt/bin/curl -s -u ${USERPASS} "${FTPS}/${FILE}.preferred.sh.tgz" -T -
-tar cpf - -C / "${TO_EXCLUDE}" 2>/dev/null | gzip -c |  /opt/bin/curl -s -u ${USERPASS} "${FTPS}/${FILE}.dangerous.sh.tgz" -T -
-tar cpf - -C / "${TO_ALL}" 2>/dev/null | gzip -c |  /opt/bin/curl -s -u ${USERPASS} "${FTPS}/${FILE}.all.sh.tgz" -T -
+if [ ${transfer} -ne 0 ] ; then
+  tar cpf - -C / "${TO_INCLUDE}" 2>/dev/null | gzip -c |  /opt/bin/curl -s -u ${USERPASS} "${FTPS}/${FILE}.essential.sh.tgz" -T -
+  tar cpf - -C / "${TO_PREFERRED}" 2>/dev/null | gzip -c |  /opt/bin/curl -s -u ${USERPASS} "${FTPS}/${FILE}.preferred.sh.tgz" -T -
+  tar cpf - -C / "${TO_EXCLUDE}" 2>/dev/null | gzip -c |  /opt/bin/curl -s -u ${USERPASS} "${FTPS}/${FILE}.dangerous.sh.tgz" -T -
+  tar cpf - -C / "${TO_ALL}" 2>/dev/null | gzip -c |  /opt/bin/curl -s -u ${USERPASS} "${FTPS}/${FILE}.all.sh.tgz" -T -
+fi
