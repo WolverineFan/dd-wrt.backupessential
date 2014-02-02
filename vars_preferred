@@ -2,6 +2,7 @@ daylight_time
 time_zone
 ^dhcp
 dnsmasq
+^filter
 ^forward
 ^http_
 ^ip_conntrack
@@ -16,3 +17,4 @@ router_name
 wl_ssid
 wl0_ssid
 wl0_wpa_psk
+^enable_
