@@ -37,7 +37,7 @@ do
   else
     # write the var to the file and use \ for special chars: (\$`")
     echo -en "nvram set ${var}=\"" | tee -ia ${TO_ALL} >> ${bfile}
-    echo -n "${data}" | sed 's/\\/\\\\/g' | sed 's/`/\\`/g' | sed 's/\$/\\\$/g' | sed 's/\"/\\"/g' | tee -ia  ${TO_ALL} >> ${bfile}
+    echo -n "${data}" |  sed -e 's/[$`"\]/\\&/g' | tee -ia  ${TO_ALL} >> ${bfile}
     echo -e "\"" | tee -ia  ${TO_ALL} >> ${bfile}
   fi
 
