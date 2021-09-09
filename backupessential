@@ -33,13 +33,16 @@
 #
 #########################################################
 export PATH=/opt/bin:/opt/sbin:/opt/usr/sbin:/bin:/usr/bin:/sbin:/usr/sbin:/jffs/sbin:/jffs/bin:/jffs/usr/sbin:/jffs/usr/bin:/mmc/sbin:/mmc/bin:/mmc/usr/sbin:/mmc/usr/bin
+commands_exist() { type "$@" >/dev/null 2>&1;}
+commands_exist curl && CURL='curl'
+[ -z "$CURL" ] && CURL='/opt/bin/curl'
 
-DATE=`date +%m%d%Y`
-MAC=`nvram get lan_hwaddr | tr -d ":"`
+DATE=$(date +%m%d%Y)
+MAC=$(nvram get lan_hwaddr | tr -d ":")
 FILE=${MAC}.${DATE}
 NAME="$0"
-[ -z "`which readlink`" ] || NAME="`readlink -f "${NAME}"`"
-CUR_DIR=`dirname ${NAME}`
+commands_exist readlink && NAME="$(readlink -f "${NAME}")"
+CUR_DIR=$(dirname "${NAME}")
 TRANSFER=0
 if [ -d /opt/tmp ]; then
   FOLDER=/opt/var/backups
@@ -52,11 +55,7 @@ else
   VARFILE=/tmp/all_vars
 fi
 
-flavours='all
-essential
-dangerous
-preferred
-minimal'
+flavours='all essential dangerous preferred minimal'
 
 #########################################################
 #FTP Login information change to your info
@@ -91,13 +90,13 @@ do
   u)   USERPASS="$OPTARG";;
   f)   FTPS="$OPTARG";;
   d)   BACKUPDIR="$OPTARG";;
-  ?)   printf "Usage: %s: [-t] [-u username:password] [-f ftpserver]\n" $0
+  ?)   printf "Usage: %s: [-t] [-u username:password] [-f ftpserver]\n" "$0"
        exit 2;;
   esac
 done
-shift $(($OPTIND - 1))
+shift $((OPTIND - 1))
 
-if [ "${BACKUPDIR}" != "" ]; then
+if [ -n "${BACKUPDIR}" ]; then
   if [ ! -d "${BACKUPDIR}" ]; then
     echo "ERROR: ${BACKUPDIR} does not exist"
     exit 1
@@ -105,160 +104,93 @@ if [ "${BACKUPDIR}" != "" ]; then
   FOLDER="${BACKUPDIR}"
   VARFILE="${BACKUPDIR}"/all_vars
 else
-  mkdir -p $FOLDER
-  if [ ! -d $FOLDER ]; then
+  mkdir -p "$FOLDER"
+  if [ ! -d "$FOLDER" ]; then
     echo "ERROR: Unable to write to $FOLDER"
     exit 1
   fi
 fi
-TO_ALL="${FOLDER}/${MAC}.${DATE}.all.sh"
-TO_INCLUDE="${FOLDER}/${MAC}.${DATE}.essential.sh"
-TO_EXCLUDE="${FOLDER}/${MAC}.${DATE}.dangerous.sh"
-TO_PREFERRED="${FOLDER}/${MAC}.${DATE}.preferred.sh"
-TO_MINIMAL="${FOLDER}/${MAC}.${DATE}.minimal.sh"
-CR=`printf "\r"`
+TO_ALL="${FOLDER}/${FILE}.all.sh"
+TO_INCLUDE="${FOLDER}/${FILE}.essential.sh"
+TO_EXCLUDE="${FOLDER}/${FILE}.dangerous.sh"
+TO_PREFERRED="${FOLDER}/${FILE}.preferred.sh"
+TO_MINIMAL="${FOLDER}/${FILE}.minimal.sh"
+SKIP_VARS="${CUR_DIR}/vars_to_skip"
+INCL_VARS="${CUR_DIR}/vars_to_include"
+PREF_VARS="${CUR_DIR}/vars_preferred"
+MIN_VARS="${CUR_DIR}/vars_minimal"
 
-if [ ! -f "${CUR_DIR}/vars_to_skip" ] ; then
- echo "${CUR_DIR}/vars_to_skip is missing"
- exit 1
-fi
-if [ ! -f "${CUR_DIR}/vars_to_include" ] ; then
- echo "${CUR_DIR}/vars_to_include is missing"
- exit 1
-fi
-if [ ! -f "${CUR_DIR}/vars_preferred" ] ; then
- echo "${CUR_DIR}/vars_preferred is missing"
- exit 1
-fi
-if [ ! -f "${CUR_DIR}/vars_minimal" ] ; then
- echo '^cron
-^wan_wins
-^wan_up
-^wl_ssid
-^wl_net_mode
-^wl_channel
-^wl_nm
-^wl_net_mode
-^wl_nband
-^wl_mrate
-^wl0_wds1_
-^wl0_wds
-^wl0_ssid
-^wl0_wchannel
-^wl0_ssid
-^wl0_phy
-^wl0_net_mode
-^wl0_nctrlsb
-^wl0_nbw
-^wl0_nband
-^wl0_nm
-^wl0_nreqd
-^wk_mode
-^wan_proto
-^wan_hostname
-^wan_dns
-^wan_domain
-^usb_
-^qos
-^wshaper_uplink
-^wshaper_downlink
-^wshaper_enable
-^wshaper_downlink
-^wshaper_dev
-^svqos_svcs
-^svqos_macs
-^static_lease
-^sshd_enable
-^sshd_wanport
-^sshd_authorized_keys
-^snmpd_
-^syslogd_enable
-^remote_mgt_ssh
-^remote_management
-^dns_dnsmasq
-^dnsmasq_
-^dmz_
-^enable_jffs2
-^log_
-^local_dns
-^lan_ipaddr
-^lan_domain
-^rc_
-^http_wanport
-^http_username
-^http_passwd
-^http_lanport
-^https_enable
-^http_enable
-^fullswitch
-^forwardspec_entries
-^forward_port$
-^forward_spec
-^forward_entries
-^forward_cur
-^ddns_enable
-^ddns_username
-^ddns_hostname
-^ddns_passwd
-^dhcp_
-^block_wan
-^cron' > "${CUR_DIR}/vars_minimal"
+for script in "${SKIP_VARS}" "${INCL_VARS}" "${PREF_VARS}"; do
+  if [ ! -f "${script}" ] ; then
+    echo "${script} is missing"
+    exit 1
+  fi
+done
+
+min_var_list="cron wan_wins wan_up wl_ssid wl_net_mode wl_channel wl_nm \
+              wl_net_mode wl_nband wl_mrate wl0_wds1_ wl0_wds wl0_ssid \
+              wl0_wchannel wl0_ssid wl0_phy wl0_net_mode wl0_nctrlsb \
+              wl0_nbw wl0_nband wl0_nm wl0_nreqd wk_mode wan_proto \
+              wan_hostname wan_dns wan_domain usb_ qos wshaper_uplink \
+              wshaper_downlink wshaper_enable wshaper_downlink wshaper_dev \
+              svqos_svcs svqos_macs static_lease sshd_enable sshd_wanport \
+              sshd_authorized_keys snmpd_ syslogd_enable remote_mgt_ssh \
+              remote_management dns_dnsmasq dnsmasq_ dmz_ enable_jffs2 \
+              log_ local_dns lan_ipaddr lan_domain rc_ http_wanport \
+              http_username http_passwd http_lanport https_enable \
+              http_enable fullswitch forwardspec_entries forward_port$ \
+              forward_spec forward_entries forward_cur ddns_enable \
+              ddns_username ddns_hostname ddns_passwd dhcp_ block_wan"
+if [ ! -f "${MIN_VARS}" ] ; then
+  for var in $min_var_list ; do
+    echo "^${var}" >> "${MIN_VARS}"
+  done
 fi
 
-grep -q "${CR}" "${CUR_DIR}/vars_to_skip"    && sed -i -e 's/\r//g' "${CUR_DIR}/vars_to_skip"
-grep -q "${CR}" "${CUR_DIR}/vars_to_include" && sed -i -e 's/\r//g' "${CUR_DIR}/vars_to_include"
-grep -q "${CR}" "${CUR_DIR}/vars_preferred"  && sed -i -e 's/\r//g' "${CUR_DIR}/vars_preferred"
-grep -q "${CR}" "${CUR_DIR}/vars_minimal"  && sed -i -e 's/\r//g' "${CUR_DIR}/vars_minimal"
-
-grep -q "^ *$" "${CUR_DIR}/vars_minimal"     && sed -i -e '/^ *$/d' "${CUR_DIR}/vars_minimal"
-grep -q "^ *$" "${CUR_DIR}/vars_preferred"   && sed -i -e '/^ *$/d' "${CUR_DIR}/vars_preferred"
-grep -q "^ *$" "${CUR_DIR}/vars_to_include"  && sed -i -e '/^ *$/d' "${CUR_DIR}/vars_to_include"
-grep -q "^ *$" "${CUR_DIR}/vars_to_skip"     && sed -i -e '/^ *$/d' "${CUR_DIR}/vars_to_skip"
+for script in "${SKIP_VARS}" "${INCL_VARS}" "${PREF_VARS}" "${MIN_VARS}"; do
+  sed -i -e 's/\r//g' -e '/^ *$/d' "${script}"
+done
 
 #########################################################
 # Create NVRAM variale list and write to /opt/tmp/all_vars
 #########################################################
 
-nvram show 2>/dev/null | egrep '^[A-Za-z][A-Za-z0-9_\.\-]*=' | awk -F= '{print $1}' | sort -ruo "${VARFILE}"
+nvram show 2>/dev/null | grep -E '^[A-Za-z][A-Za-z0-9_\.\-]*=' | awk -F= '{print $1}' | sort -ruo "${VARFILE}"
 
 #########################################################
 # Write header to restore scripts
 #########################################################
 
-echo -e "#!/bin/sh\n#\necho \"Write variables\"\n" | tee -i "${TO_EXCLUDE}" | tee -i "${TO_PREFERRED}" | tee -i  "${TO_ALL}" | tee -i "${TO_MINIMAL}" > "${TO_INCLUDE}"
+for script in "${TO_INCLUDE}" "${TO_EXCLUDE}" "${TO_PREFERRED}" "${TO_MINIMAL}" "${TO_ALL}"; do
+  printf '%b\n' "#!/bin/sh\n#\necho \"Write variables\"\n" > "${script}"
+done
 
 #########################################################
 # Scan NVRAM variable list and send variable to proper
 # restore script
 #########################################################
 
-while read var ; do
+while read -r var ; do
   pref=0
   minim=0
-  if echo "${var}" | grep -q -f "${CUR_DIR}/vars_to_skip" ; then
+  if echo "${var}" | grep -q -f "${SKIP_VARS}" ; then
     bfile="$TO_EXCLUDE"
   else
     bfile="$TO_INCLUDE"
-    pref=`echo "${var}"  | grep -cf "${CUR_DIR}/vars_preferred"`
-    minim=`echo "${var}" | grep -cf "${CUR_DIR}/vars_minimal"`
+    pref=$(echo "${var}"  | grep -cf "${PREF_VARS}")
+    minim=$(echo "${var}" | grep -cf "${MIN_VARS}")
   fi
 
   # get the data out of the variable
-  data="`nvram get ${var}`"
+  data="$(nvram get "${var}")"
   # write the var to the file and use \ for special chars: (\$`")
-  echo -en "nvram set ${var}=\"" | tee -ia ${TO_ALL} >> ${bfile}
-  echo -n "${data}" |  sed -e 's/[$`"\]/\\&/g' | tee -ia  ${TO_ALL} >> ${bfile}
-  echo -e "\"" | tee -ia  ${TO_ALL} >> ${bfile}
-  if [ ${pref} -ne 0 ]; then
-    echo -en "nvram set ${var}=\"" >> ${TO_PREFERRED}
-    echo -n "${data}" |  sed -e 's/[$`"\]/\\&/g' >> ${TO_PREFERRED}
-    echo -e "\"" >> ${TO_PREFERRED}
-  fi
-  if [ ${minim} -ne 0 ]; then
-    echo -en "nvram set ${var}=\"" >> ${TO_MINIMAL}
-    echo -n "${data}" |  sed -e 's/[$`"\]/\\&/g' >> ${TO_MINIMAL}
-    echo -e "\"" >> ${TO_MINIMAL}
-  fi
+  nvram_str="$(printf '%b' "nvram set ${var}=\""
+                printf '%s' "${data}" | sed -e 's/[$`"\]/\\&/g'
+                printf '%b\n' "\"")"
+  echo "$nvram_str"
+  echo "$nvram_str" >> "${bfile}"
+  [ "${pref}" -ne 0 ] && echo "$nvram_str" >> "${TO_PREFERRED}"
+  [ "${minim}" -ne 0 ] && echo "$nvram_str" >> "${TO_MINIMAL}"
 done <"${VARFILE}"
 
 #########################################################
@@ -269,60 +201,55 @@ done <"${VARFILE}"
 # rm ${VARFILE}
 
 #########################################################
-# Write footer to restore script
+# Write footer to restore script and
+# change permissions to make them executable
 #########################################################
 
-echo -e "\n# Commit variables\necho \"Save variables to nvram\"\nnvram commit"  | tee -ia  "${TO_ALL}" | tee -ia  "${TO_PREFERRED}" | tee -ia  "${TO_EXCLUDE}" | tee -ia  "${TO_MINIMAL}" >> "${TO_INCLUDE}"
-
-#########################################################
-# Change permissions on restore scripts to make them
-# executable
-#########################################################
-
-chmod +x "${TO_INCLUDE}"
-chmod +x "${TO_PREFERRED}"
-chmod +x "${TO_EXCLUDE}"
-chmod +x "${TO_ALL}"
-chmod +x "${TO_MINIMAL}"
+for script in "${TO_INCLUDE}" "${TO_EXCLUDE}" "${TO_PREFERRED}" "${TO_MINIMAL}" "${TO_ALL}"; do
+  printf '%b\n' "\n# Commit variables\necho \"Save variables to nvram\"\nnvram commit" >> "${script}" &&
+  chmod +x "${script}"
+done
 
 # Remove the previous backup if it's (almost) the same
-if cd "${FOLDER}" ; then
+if [ -d "${FOLDER}" ] ; then
+  temp1='/tmp/chk1'; temp2='/tmp/chk2'
+  if commands_exist mktemp; then
+    temp1="$(mktemp)" && temp2="$(mktemp)"
+  fi
   for flavour in ${flavours} ; do
 
     echo "Checking ${MAC}.*.${flavour}.sh"
 
-    LAST3=`ls --color=never -1rt ${MAC}.*.${flavour}.sh | tail -n3`
-    PREVIOUS=`echo "${LAST3}" | tail -n+2 | head -n1`
-    CURRENT=`echo  "${LAST3}" | tail -n1`
+    LAST3=$(ls --color=never -1rt "${FOLDER}"/"${MAC}".*."${flavour}".sh | tail -n3)
+    PREVIOUS=$(echo "${LAST3}" | tail -n+2 | head -n1)
+    CURRENT=$(echo  "${LAST3}" | tail -n1)
 
-    if [ ! -z "${PREVIOUS}" ] && [ ! "${PREVIOUS}" = "${CURRENT}" ]; then
-
-      grep -vE 'nvram set (forward_|traff|dnsmasq_lease_|http_client_)' ${PREVIOUS} >/tmp/chk1
-      grep -vE 'nvram set (forward_|traff|dnsmasq_lease_|http_client_)' ${CURRENT}  >/tmp/chk2
+    if [ -n "${PREVIOUS}" ] && [ "${PREVIOUS}" != "${CURRENT}" ]; then
+      nvram_grep='nvram set (forward_|traff|dnsmasq_lease_|http_client_)'
+      grep -vE "${nvram_grep}" "${PREVIOUS}" >"${temp1}"
+      grep -vE "${nvram_grep}" "${CURRENT}" >"${temp2}"
       echo "Comparing ${PREVIOUS} with ${CURRENT}"
 
-      if [ -z "`diff /tmp/chk1 /tmp/chk2`" ] ; then
+      if diff "${temp1}" "${temp2}" >/dev/null 2>&1; then
         echo "Removing ${PREVIOUS} because it's the same as ${CURRENT}"
-        rm -f ${PREVIOUS}
+        rm -f "${PREVIOUS}"
       fi
 
     fi
   done
-  rm -f /tmp/chk1
-  rm -f /tmp/chk2
+  rm -f "${temp1}" "${temp2}"
 fi
 
 [ -h /opt/restore ] && rm /opt/restore
-ln -s ${TO_MINIMAL} /opt/restore
+ln -s "${TO_MINIMAL}" /opt/restore
 
 #########################################################
 # Compress restore scripts and send them to ftp server
 #########################################################
 
 if [ "${TRANSFER}" -ne 0 ] ; then
-  tar cpf - -C / "${TO_INCLUDE}" 2>/dev/null | gzip -c |  /opt/bin/curl -s -u ${USERPASS} "${FTPS}/${FILE}.essential.sh.tgz" -T -
-  tar cpf - -C / "${TO_MINIMAL}" 2>/dev/null | gzip -c |  /opt/bin/curl -s -u ${USERPASS} "${FTPS}/${FILE}.minimal.sh.tgz" -T -
-  tar cpf - -C / "${TO_PREFERRED}" 2>/dev/null | gzip -c |  /opt/bin/curl -s -u ${USERPASS} "${FTPS}/${FILE}.preferred.sh.tgz" -T -
-  tar cpf - -C / "${TO_EXCLUDE}" 2>/dev/null | gzip -c |  /opt/bin/curl -s -u ${USERPASS} "${FTPS}/${FILE}.dangerous.sh.tgz" -T -
-  tar cpf - -C / "${TO_ALL}" 2>/dev/null | gzip -c |  /opt/bin/curl -s -u ${USERPASS} "${FTPS}/${FILE}.all.sh.tgz" -T -
+  for script in "${TO_INCLUDE}" "${TO_EXCLUDE}" "${TO_PREFERRED}" "${TO_MINIMAL}" "${TO_ALL}"; do
+    out_file="${FTPS}/$(basename "$script").tgz"
+    tar cpf - -C / "${script}" 2>/dev/null | gzip -c | "$CURL" -s -u "${USERPASS}" "${out_file}" -T -
+  done
 fi
